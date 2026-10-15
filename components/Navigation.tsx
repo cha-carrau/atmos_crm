@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSessionEmail } from "@/components/AuthGate";
 
 export default function Navigation() {
   const pathname = usePathname();
+  const email = useSessionEmail();
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -16,7 +18,9 @@ export default function Navigation() {
   const navItems = [
     { name: "Home", path: "/" },
     { name: "People", path: "/people" },
+    { name: "Lists", path: "/lists" },
     { name: "Companies", path: "/companies" },
+    { name: "Outlook", path: "/outlook" },
   ];
 
   return (
@@ -28,14 +32,14 @@ export default function Navigation() {
               href="/"
               className="text-xl font-semibold text-gray-900 dark:text-white"
             >
-              Tempo
+              AtmosOne CRM
             </Link>
-            <div className="flex gap-1">
+            <div className="flex gap-1 overflow-x-auto">
               {navItems.map((item) => (
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
                     isActive(item.path)
                       ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -47,7 +51,12 @@ export default function Navigation() {
             </div>
           </div>
 
-          {/* Settings Icon */}
+          <div className="flex items-center gap-3">
+            {email && (
+              <span className="hidden sm:block max-w-[180px] truncate text-sm text-gray-500 dark:text-gray-400">
+                {email}
+              </span>
+            )}
           <Link
             href="/settings"
             className={`p-2 rounded-lg transition-colors duration-200 ${
@@ -77,6 +86,7 @@ export default function Navigation() {
               />
             </svg>
           </Link>
+          </div>
         </div>
       </div>
     </nav>

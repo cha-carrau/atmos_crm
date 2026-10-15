@@ -2,6 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/useStore";
+import { useContactSubtags } from "@/store/useContactSubtags";
+import { CONTACT_TYPES, ContactType, getContactTypeDefinition } from "@/types";
+import { labelForSubtag } from "@/utils/contactSubtags";
 import PersonCard from "@/components/PersonCard";
 import AddPersonModal from "@/components/AddPersonModal";
 import AddCompanyModal from "@/components/AddCompanyModal";
@@ -10,21 +13,33 @@ type StatusTab = "active" | "parked" | "closed";
 
 export default function PeoplePage() {
   const { people, getCompany, getFollowUpStatus } = useStore();
+  const safePeople = Array.isArray(people) ? people : [];
+  const customByType = useContactSubtags((state) => state.byType);
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<StatusTab>("active");
+  const [typeFilter, setTypeFilter] = useState<ContactType | "all">("all");
 
-  // Filter people based on search query
-  const filteredPeople = people.filter((person) => {
+  // Filter people based on search query and contact type
+  const filteredPeople = safePeople.filter((person) => {
+    if (!person) return false;
+    if (typeFilter !== "all" && person.contactType !== typeFilter) return false;
+
     const query = searchQuery.toLowerCase();
-    const nameMatch = person.name.toLowerCase().includes(query);
+    if (!query) return true;
+    const nameMatch = (person.name || "").toLowerCase().includes(query);
     const emailMatch = person.email?.toLowerCase().includes(query);
     const jobTitleMatch = person.jobTitle?.toLowerCase().includes(query);
     const company = person.companyId ? getCompany(person.companyId) : undefined;
     const companyMatch = company?.name.toLowerCase().includes(query);
+    const typeMatch = getContactTypeDefinition(person.contactType)?.label.toLowerCase().includes(query);
+    const subtagMatch = labelForSubtag(person.contactType, person.subtag, customByType)
+      ?.toLowerCase()
+      .includes(query);
+    const tagMatch = (person.tags || []).some((tag) => tag.toLowerCase().includes(query));
 
-    return nameMatch || emailMatch || jobTitleMatch || companyMatch;
+    return nameMatch || emailMatch || jobTitleMatch || companyMatch || typeMatch || subtagMatch || tagMatch;
   });
 
   // Group and sort people by status
@@ -103,11 +118,37 @@ export default function PeoplePage() {
             <div className="mb-6">
               <input
                 type="text"
-                placeholder="Search by name, email, job title, or company..."
+                placeholder="Search by name, email, company, or tag..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="block w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
               />
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setTypeFilter("all")}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  typeFilter === "all"
+                    ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                    : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-800"
+                }`}
+              >
+                All types
+              </button>
+              {CONTACT_TYPES.map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => setTypeFilter(type.id)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    typeFilter === type.id
+                      ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                      : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-800"
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
             </div>
 
             {/* Status Tabs */}

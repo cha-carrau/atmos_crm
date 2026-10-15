@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/store/useStore";
+import { ContactType } from "@/types";
 import CompanyAutocomplete from "./CompanyAutocomplete";
+import ContactTagFields from "./ContactTagFields";
 
 interface AddPersonModalProps {
   isOpen: boolean;
@@ -23,8 +25,12 @@ export default function AddPersonModal({
     linkedinUrl: "",
     companyId: "",
     notes: "",
+    contactType: "" as ContactType | "",
+    subtag: "",
+    tags: [] as string[],
   });
   const [companyInputText, setCompanyInputText] = useState("");
+  const [typeError, setTypeError] = useState("");
 
   if (!isOpen) return null;
 
@@ -49,6 +55,11 @@ export default function AddPersonModal({
       }
     }
     
+    if (!formData.contactType) {
+      setTypeError("Choose a contact type.");
+      return;
+    }
+
     const personId = addPerson({
       name: formData.name,
       email: formData.email || undefined,
@@ -56,6 +67,9 @@ export default function AddPersonModal({
       linkedinUrl: formData.linkedinUrl || undefined,
       companyId: finalCompanyId || undefined,
       notes: formData.notes || undefined,
+      contactType: formData.contactType,
+      subtag: formData.subtag || undefined,
+      tags: formData.tags,
       status: "active",
     });
     setFormData({
@@ -65,7 +79,11 @@ export default function AddPersonModal({
       linkedinUrl: "",
       companyId: "",
       notes: "",
+      contactType: "",
+      subtag: "",
+      tags: [],
     });
+    setTypeError("");
     setCompanyInputText("");
     onClose();
     
@@ -75,7 +93,7 @@ export default function AddPersonModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-md">
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-6">
           Add New Person
         </h2>
@@ -156,6 +174,17 @@ export default function AddPersonModal({
               placeholder="https://linkedin.com/in/johndoe"
             />
           </div>
+
+          <ContactTagFields
+            contactType={formData.contactType}
+            subtag={formData.subtag}
+            tags={formData.tags}
+            error={typeError}
+            onChange={(next) => {
+              setTypeError("");
+              setFormData((current) => ({ ...current, ...next }));
+            }}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

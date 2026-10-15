@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
-import { Person } from "@/types";
+import { ContactType, Person } from "@/types";
 import CompanyAutocomplete from "./CompanyAutocomplete";
+import ContactTagFields from "./ContactTagFields";
 
 interface EditPersonModalProps {
   isOpen: boolean;
@@ -25,7 +26,11 @@ export default function EditPersonModal({
     companyId: person.companyId || "",
     notes: person.notes || "",
     status: person.status || "active",
+    contactType: (person.contactType || "") as ContactType | "",
+    subtag: person.subtag || "",
+    tags: person.tags || [],
   });
+  const [typeError, setTypeError] = useState("");
 
   // Update form when person changes
   useEffect(() => {
@@ -37,7 +42,11 @@ export default function EditPersonModal({
       companyId: person.companyId || "",
       notes: person.notes || "",
       status: person.status || "active",
+      contactType: (person.contactType || "") as ContactType | "",
+      subtag: person.subtag || "",
+      tags: person.tags || [],
     });
+    setTypeError("");
   }, [person]);
 
   if (!isOpen) return null;
@@ -48,6 +57,10 @@ export default function EditPersonModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.contactType) {
+      setTypeError("Choose a contact type.");
+      return;
+    }
     updatePerson(person.id, {
       name: formData.name,
       email: formData.email || undefined,
@@ -55,7 +68,10 @@ export default function EditPersonModal({
       linkedinUrl: formData.linkedinUrl || undefined,
       companyId: formData.companyId || undefined,
       notes: formData.notes || undefined,
-      status: formData.status as "active" | "closed",
+      status: formData.status as "active" | "parked" | "closed",
+      contactType: formData.contactType,
+      subtag: formData.subtag || undefined,
+      tags: formData.tags,
     });
     onClose();
   };
@@ -161,6 +177,17 @@ export default function EditPersonModal({
               <option value="closed">Closed</option>
             </select>
           </div>
+
+          <ContactTagFields
+            contactType={formData.contactType}
+            subtag={formData.subtag}
+            tags={formData.tags}
+            error={typeError}
+            onChange={(next) => {
+              setTypeError("");
+              setFormData((current) => ({ ...current, ...next }));
+            }}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

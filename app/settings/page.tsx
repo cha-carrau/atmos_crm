@@ -8,6 +8,7 @@ import AddEventTypeModal from "@/components/AddEventTypeModal";
 import DeleteEventTypeModal from "@/components/DeleteEventTypeModal";
 import Badge from "@/components/Badge";
 import { exportToCSV, parseCSV, downloadCSV } from "@/utils/csvHelpers";
+import TeamSettings from "@/components/TeamSettings";
 
 export default function SettingsPage() {
   const { getAllEventTypes, updateEventType, exportData, importData } = useStore();
@@ -50,9 +51,15 @@ export default function SettingsPage() {
 
   const handleExport = () => {
     const data = exportData();
-    const csvContent = exportToCSV(data.people, data.companies, data.events, data.customEventTypes);
+    const csvContent = exportToCSV(
+      data.people,
+      data.companies,
+      data.events,
+      data.customEventTypes,
+      data.mailingLists
+    );
     const timestamp = new Date().toISOString().split("T")[0];
-    downloadCSV(csvContent, `tempo-export-${timestamp}.csv`);
+    downloadCSV(csvContent, `atmosone-crm-export-${timestamp}.csv`);
   };
 
   const handleImport = () => {
@@ -131,7 +138,7 @@ export default function SettingsPage() {
               Settings
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Manage event types and follow-up thresholds
+              Manage owners, event types, and follow-up thresholds
             </p>
           </div>
           <div className="flex gap-2">
@@ -182,6 +189,8 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+
+        <TeamSettings />
 
         {/* Import status messages */}
         {importError && (

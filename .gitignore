@@ -35,4 +35,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# shared workspace data and Outlook refresh tokens
+/data
+/data/outlook-tokens.json
+
+# environment secrets (keep .env.example)
+.env
+
 

@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import {
   Person,
   Company,
@@ -8,7 +7,10 @@ import {
   FollowUpStatus,
   EventTypeDefinition,
   DEFAULT_EVENT_TYPES,
+  MailingList,
+  ContactType,
 } from "@/types";
+import { bindStore, markDirty, WorkspaceSnapshot } from "@/store/sync";
 
 interface TempoState {
   // Data
@@ -16,7 +18,10 @@ interface TempoState {
   companies: Company[];
   events: Event[];
   customEventTypes: EventTypeDefinition[]; // User-created event types
-  _hasHydrated?: boolean; // Migration flag
+  mailingLists: MailingList[];
+  version: number;
+  applyServerState: (data: WorkspaceSnapshot) => void;
+  setVersion: (version: number) => void;
 
   // People actions
   addPerson: (person: Omit<Person, "id" | "createdAt" | "updatedAt">) => string;
@@ -45,9 +50,27 @@ interface TempoState {
   deleteEventType: (id: string) => { success: boolean; eventsUsingType?: Event[] };
   getEventsUsingEventType: (typeId: string) => Event[];
 
+  // Mailing list actions
+  addMailingList: (list: Omit<MailingList, "id" | "createdAt" | "updatedAt">) => string;
+  updateMailingList: (id: string, updates: Partial<Omit<MailingList, "id" | "createdAt">>) => void;
+  deleteMailingList: (id: string) => void;
+  getMailingList: (id: string) => MailingList | undefined;
+
   // Import/Export actions
-  exportData: () => { people: Person[]; companies: Company[]; events: Event[]; customEventTypes: EventTypeDefinition[] };
-  importData: (data: { people: Person[]; companies: Company[]; events: Event[]; customEventTypes: EventTypeDefinition[] }) => void;
+  exportData: () => {
+    people: Person[];
+    companies: Company[];
+    events: Event[];
+    customEventTypes: EventTypeDefinition[];
+    mailingLists: MailingList[];
+  };
+  importData: (data: {
+    people: Person[];
+    companies: Company[];
+    events: Event[];
+    customEventTypes: EventTypeDefinition[];
+    mailingLists?: MailingList[];
+  }) => void;
 
   // Follow-up logic
   getFollowUpStatus: (personId: string) => FollowUpStatus;
@@ -93,31 +116,49 @@ const migratePeopleStatus = (people: Person[]): Person[] => {
   return people.map((person) => ({
     ...person,
     status: person.status || "active", // Default to active if missing
+    tags: Array.isArray(person.tags) ? person.tags : [],
   }));
 };
 
-export const useStore = create<TempoState>()(
-  persist(
-    (set, get) => ({
+export const useStore = create<TempoState>()((setState, get) => {
+  const commit: typeof setState = (partial) => {
+    setState(partial);
+    markDirty();
+  };
+
+  return {
       // Initial state
       people: [],
       companies: [],
       events: [],
       customEventTypes: [],
+      mailingLists: [],
+      version: 0,
 
-      // Run migrations on hydration
-      _hasHydrated: false,
+      applyServerState: (data) => {
+        setState({
+          version: data.version,
+          people: migratePeopleStatus(data.people || []),
+          companies: data.companies || [],
+          events: migrateEventTypes(data.events || []),
+          customEventTypes: data.customEventTypes || [],
+          mailingLists: data.mailingLists || [],
+        });
+      },
+
+      setVersion: (version) => setState({ version }),
 
       // People actions
       addPerson: (person) => {
         const id = generateId();
-        set((state) => ({
+        commit((state) => ({
           people: [
             ...state.people,
             {
               ...person,
               id,
               status: person.status || "active", // Default to active
+              tags: person.tags || [],
               createdAt: getTimestamp(),
               updatedAt: getTimestamp(),
             },
@@ -127,14 +168,14 @@ export const useStore = create<TempoState>()(
       },
 
       updatePerson: (id, updates) =>
-        set((state) => ({
+        commit((state) => ({
           people: state.people.map((p) =>
             p.id === id ? { ...p, ...updates, updatedAt: getTimestamp() } : p
           ),
         })),
 
       deletePerson: (id) =>
-        set((state) => ({
+        commit((state) => ({
           people: state.people.filter((p) => p.id !== id),
           // Also delete all events for this person
           events: state.events.filter((e) => e.personId !== id),
@@ -145,7 +186,7 @@ export const useStore = create<TempoState>()(
       // Company actions
       addCompany: (company) => {
         const id = generateId();
-        set((state) => ({
+        commit((state) => ({
           companies: [
             ...state.companies,
             {
@@ -160,14 +201,14 @@ export const useStore = create<TempoState>()(
       },
 
       updateCompany: (id, updates) =>
-        set((state) => ({
+        commit((state) => ({
           companies: state.companies.map((c) =>
             c.id === id ? { ...c, ...updates, updatedAt: getTimestamp() } : c
           ),
         })),
 
       deleteCompany: (id) =>
-        set((state) => ({
+        commit((state) => ({
           companies: state.companies.filter((c) => c.id !== id),
           // Optionally remove company association from people
           people: state.people.map((p) =>
@@ -184,7 +225,7 @@ export const useStore = create<TempoState>()(
 
       // Event actions
       addEvent: (event) =>
-        set((state) => ({
+        commit((state) => ({
           events: [
             ...state.events,
             {
@@ -197,14 +238,14 @@ export const useStore = create<TempoState>()(
         })),
 
       updateEvent: (id, updates) =>
-        set((state) => ({
+        commit((state) => ({
           events: state.events.map((e) =>
             e.id === id ? { ...e, ...updates, updatedAt: getTimestamp() } : e
           ),
         })),
 
       deleteEvent: (id) =>
-        set((state) => ({
+        commit((state) => ({
           events: state.events.filter((e) => e.id !== id),
         })),
 
@@ -251,7 +292,7 @@ export const useStore = create<TempoState>()(
           isCustom: true,
           createdAt: getTimestamp(),
         };
-        set((state) => ({
+        commit((state) => ({
           customEventTypes: [...state.customEventTypes, newType],
         }));
         return id;
@@ -266,7 +307,7 @@ export const useStore = create<TempoState>()(
 
         if (typeToUpdate.isCustom) {
           // Update custom type
-          set((state) => ({
+          commit((state) => ({
             customEventTypes: state.customEventTypes.map((t) =>
               t.id === id ? { ...t, ...updates } : t
             ),
@@ -275,7 +316,7 @@ export const useStore = create<TempoState>()(
           // For default types, store overrides in custom types but keep isCustom: false
           const existingOverride = get().customEventTypes.find((t) => t.id === id);
           if (existingOverride) {
-            set((state) => ({
+            commit((state) => ({
               customEventTypes: state.customEventTypes.map((t) =>
                 t.id === id ? { ...t, ...updates, isCustom: false } : t
               ),
@@ -287,7 +328,7 @@ export const useStore = create<TempoState>()(
               ...updates,
               isCustom: false, // Keep as false so it shows in default types section
             };
-            set((state) => ({
+            commit((state) => ({
               customEventTypes: [...state.customEventTypes, override],
             }));
           }
@@ -301,7 +342,7 @@ export const useStore = create<TempoState>()(
           return { success: false, eventsUsingType };
         }
 
-        set((state) => ({
+        commit((state) => ({
           customEventTypes: state.customEventTypes.filter((t) => t.id !== id),
         }));
 
@@ -311,6 +352,40 @@ export const useStore = create<TempoState>()(
       getEventsUsingEventType: (typeId) => {
         return get().events.filter((e) => e.type === typeId);
       },
+
+      addMailingList: (list) => {
+        const id = generateId();
+        const timestamp = getTimestamp();
+        commit((state) => ({
+          mailingLists: [
+            ...state.mailingLists,
+            {
+              ...list,
+              contactType: list.contactType as ContactType | undefined,
+              subtags: list.subtags || [],
+              tags: list.tags || [],
+              id,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            },
+          ],
+        }));
+        return id;
+      },
+
+      updateMailingList: (id, updates) =>
+        commit((state) => ({
+          mailingLists: state.mailingLists.map((list) =>
+            list.id === id ? { ...list, ...updates, updatedAt: getTimestamp() } : list
+          ),
+        })),
+
+      deleteMailingList: (id) =>
+        commit((state) => ({
+          mailingLists: state.mailingLists.filter((list) => list.id !== id),
+        })),
+
+      getMailingList: (id) => get().mailingLists.find((list) => list.id === id),
 
       // Follow-up logic
       getFollowUpStatus: (personId): FollowUpStatus => {
@@ -441,32 +516,36 @@ export const useStore = create<TempoState>()(
           companies: state.companies,
           events: state.events,
           customEventTypes: state.customEventTypes,
+          mailingLists: state.mailingLists,
         };
       },
 
       // Import data (replaces existing data)
       importData: (data) => {
-        set({
+        commit({
           people: data.people,
           companies: data.companies,
           events: data.events,
           customEventTypes: data.customEventTypes || [],
+          mailingLists: data.mailingLists !== undefined ? data.mailingLists : get().mailingLists,
         });
       },
-    }),
-    {
-      name: "tempo-storage",
-      onRehydrateStorage: () => (state) => {
-        if (state && !state._hasHydrated) {
-          // Run migrations
-          const migratedEvents = migrateEventTypes(state.events);
-          const migratedPeople = migratePeopleStatus(state.people);
-          state.events = migratedEvents;
-          state.people = migratedPeople;
-          state._hasHydrated = true;
-        }
-      },
-    }
-  )
+  };
+});
+
+bindStore(
+  () => {
+    const state = useStore.getState();
+    return {
+      version: state.version,
+      people: state.people,
+      companies: state.companies,
+      events: state.events,
+      customEventTypes: state.customEventTypes,
+      mailingLists: state.mailingLists,
+    };
+  },
+  (snapshot) => useStore.getState().applyServerState(snapshot),
+  (version) => useStore.getState().setVersion(version)
 );
 

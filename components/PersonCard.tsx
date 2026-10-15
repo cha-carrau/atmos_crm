@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Person, Company, FollowUpStatus } from "@/types";
 import FollowUpBadge from "./FollowUpBadge";
 import Badge from "./Badge";
+import ContactTypeBadges from "./ContactTypeBadges";
 
 interface PersonCardProps {
   person: Person;
@@ -38,6 +39,12 @@ export default function PersonCard({
             />
           )}
         </div>
+
+        {(person.contactType || (person.tags && person.tags.length > 0)) && (
+          <div className="mb-3">
+            <ContactTypeBadges person={person} />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 mb-3">
           {company && <Badge variant="soft">{company.name}</Badge>}

@@ -7,8 +7,8 @@ import { useStore } from "@/store/useStore";
 import EventTimeline from "@/components/EventTimeline";
 import AddEventModal from "@/components/AddEventModal";
 import EditPersonModal from "@/components/EditPersonModal";
-import Badge from "@/components/Badge";
 import FollowUpBadge from "@/components/FollowUpBadge";
+import ContactTypeBadges from "@/components/ContactTypeBadges";
 
 export default function PersonDetailPage() {
   const params = useParams();
@@ -142,6 +142,18 @@ export default function PersonDetailPage() {
                                 />
                               )}
                       </div>
+              <div className="mt-3">
+                {person.contactType ? (
+                  <ContactTypeBadges person={person} linked />
+                ) : (
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    Add a contact type
+                  </button>
+                )}
+              </div>
               {person.jobTitle && (
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   {person.jobTitle}

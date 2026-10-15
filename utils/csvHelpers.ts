@@ -1,4 +1,4 @@
-import { Person, Company, Event, EventTypeDefinition, EventTypeCategory } from "@/types";
+import { Person, Company, Event, EventTypeDefinition, EventTypeCategory, MailingList, ContactType, CONTACT_TYPES } from "@/types";
 
 export interface CSVRow {
   personId: string;
@@ -19,6 +19,9 @@ export interface CSVRow {
   eventType: string;
   eventNotes: string;
   eventCustomFollowUpDays: string;
+  personContactType: string;
+  personSubtag: string;
+  personTags: string;
 }
 
 export interface CSVEventType {
@@ -32,7 +35,8 @@ export function exportToCSV(
   people: Person[],
   companies: Company[],
   events: Event[],
-  customEventTypes: EventTypeDefinition[]
+  customEventTypes: EventTypeDefinition[],
+  mailingLists: MailingList[] = []
 ): string {
   const rows: CSVRow[] = [];
 
@@ -73,6 +77,9 @@ export function exportToCSV(
         eventType: "",
         eventNotes: "",
         eventCustomFollowUpDays: "",
+        personContactType: person.contactType || "",
+        personSubtag: person.subtag || "",
+        personTags: (person.tags || []).join("|"),
       });
     } else {
       // Person with events - one row per event
@@ -96,6 +103,9 @@ export function exportToCSV(
           eventType: event.type,
           eventNotes: event.notes || "",
           eventCustomFollowUpDays: event.customFollowUpDays?.toString() || "",
+          personContactType: person.contactType || "",
+          personSubtag: person.subtag || "",
+          personTags: (person.tags || []).join("|"),
         });
       });
     }
@@ -121,6 +131,9 @@ export function exportToCSV(
     "EventType",
     "EventNotes",
     "EventCustomFollowUpDays",
+    "PersonContactType",
+    "PersonSubtag",
+    "PersonTags",
   ];
 
   const csvLines = [headers.join(",")];
@@ -140,6 +153,21 @@ export function exportToCSV(
     });
     csvLines.push("# CUSTOM_EVENT_TYPES_END");
   }
+
+  csvLines.push("# MAILING_LISTS_START");
+  mailingLists.forEach((list) => {
+    csvLines.push(
+      [
+        "LIST",
+        escapeCsvField(list.id),
+        escapeCsvField(list.name),
+        escapeCsvField(list.contactType || ""),
+        escapeCsvField(list.subtags.join("|")),
+        escapeCsvField(list.tags.join("|")),
+      ].join(",")
+    );
+  });
+  csvLines.push("# MAILING_LISTS_END");
 
   rows.forEach((row) => {
     const line = [
@@ -161,6 +189,9 @@ export function exportToCSV(
       escapeCsvField(row.eventType),
       escapeCsvField(row.eventNotes),
       escapeCsvField(row.eventCustomFollowUpDays),
+      escapeCsvField(row.personContactType),
+      escapeCsvField(row.personSubtag),
+      escapeCsvField(row.personTags),
     ].join(",");
     csvLines.push(line);
   });
@@ -181,6 +212,7 @@ export function parseCSV(csvContent: string): {
   companies: Company[];
   events: Event[];
   customEventTypes: EventTypeDefinition[];
+  mailingLists?: MailingList[];
 } {
   const lines = csvContent.split("\n").filter((line) => line.trim() !== "");
   if (lines.length < 2) {
@@ -191,9 +223,12 @@ export function parseCSV(csvContent: string): {
   const companies = new Map<string, Company>();
   const events: Event[] = [];
   const customEventTypes: EventTypeDefinition[] = [];
+  const mailingLists: MailingList[] = [];
+  let sawMailingLists = false;
 
   let i = 1; // Skip header line
   let inEventTypeSection = false;
+  let inMailingListSection = false;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -211,6 +246,19 @@ export function parseCSV(csvContent: string): {
       continue;
     }
 
+    if (line.startsWith("# MAILING_LISTS_START")) {
+      inMailingListSection = true;
+      sawMailingLists = true;
+      i++;
+      continue;
+    }
+
+    if (line.startsWith("# MAILING_LISTS_END")) {
+      inMailingListSection = false;
+      i++;
+      continue;
+    }
+
     // Parse event type lines
     if (inEventTypeSection) {
       const fields = parseCsvLine(line);
@@ -223,6 +271,25 @@ export function parseCSV(csvContent: string): {
           defaultFollowUpDays: parseInt(followUpDays, 10),
           isCustom: true,
           createdAt: new Date().toISOString(),
+        });
+      }
+      i++;
+      continue;
+    }
+
+    if (inMailingListSection) {
+      const fields = parseCsvLine(line);
+      if (fields.length >= 3 && fields[0] === "LIST") {
+        const [, id, name, contactType = "", subtags = "", tags = ""] = fields;
+        const type = CONTACT_TYPES.find((item) => item.id === contactType)?.id;
+        mailingLists.push({
+          id,
+          name,
+          contactType: type as ContactType | undefined,
+          subtags: subtags ? subtags.split("|").filter(Boolean) : [],
+          tags: tags ? tags.split("|").filter(Boolean) : [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
       i++;
@@ -256,6 +323,9 @@ export function parseCSV(csvContent: string): {
       eventType,
       eventNotes,
       eventCustomFollowUpDays,
+      personContactType = "",
+      personSubtag = "",
+      personTags = "",
     ] = fields;
 
     // Add company if not already added
@@ -282,6 +352,9 @@ export function parseCSV(csvContent: string): {
         notes: personNotes || undefined,
         companyId: companyId || undefined,
         status: (personStatus as "active" | "parked" | "closed") || "active",
+        contactType: CONTACT_TYPES.find((item) => item.id === personContactType)?.id,
+        subtag: personSubtag || undefined,
+        tags: personTags ? personTags.split("|").filter(Boolean) : [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -312,6 +385,7 @@ export function parseCSV(csvContent: string): {
     companies: Array.from(companies.values()),
     events,
     customEventTypes,
+    mailingLists: sawMailingLists ? mailingLists : undefined,
   };
 }
 

@@ -74,6 +74,77 @@ export enum EventType {
   REPLY_RECEIVED = "Reply Received",
 }
 
+export type ContactType = "investor" | "client" | "partner" | "hire";
+
+export interface ContactSubtag {
+  id: string;
+  label: string;
+}
+
+export interface ContactTypeDefinition {
+  id: ContactType;
+  label: string;
+  subtagLabel?: string;
+  subtags: ContactSubtag[];
+}
+
+export const CONTACT_TYPES: ContactTypeDefinition[] = [
+  {
+    id: "investor",
+    label: "Investor",
+    subtagLabel: "Investor type",
+    subtags: [
+      { id: "early-stage", label: "Early-stage" },
+      { id: "angel", label: "Angel" },
+      { id: "seed", label: "Seed" },
+      { id: "series-a", label: "Series A" },
+      { id: "series-b", label: "Series B" },
+    ],
+  },
+  {
+    id: "client",
+    label: "Client",
+    subtagLabel: "Client type",
+    subtags: [
+      { id: "pilot", label: "Pilot" },
+      { id: "design-partner", label: "Design partner" },
+      { id: "enterprise", label: "Enterprise" },
+      { id: "supply-side", label: "Supply-side" },
+    ],
+  },
+  {
+    id: "partner",
+    label: "Partner",
+    subtagLabel: "Partner type",
+    subtags: [],
+  },
+  {
+    id: "hire",
+    label: "Hire",
+    subtagLabel: "Hire type",
+    subtags: [],
+  },
+];
+
+export function getContactTypeDefinition(id?: string) {
+  return CONTACT_TYPES.find((type) => type.id === id);
+}
+
+export function getSubtagLabel(contactType?: string, subtag?: string) {
+  if (!contactType || !subtag) return undefined;
+  return getContactTypeDefinition(contactType)?.subtags.find((tag) => tag.id === subtag)?.label;
+}
+
+export interface MailingList {
+  id: string;
+  name: string;
+  contactType?: ContactType;
+  subtags: string[];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -92,6 +163,9 @@ export interface Person {
   linkedinUrl?: string;
   notes?: string;
   companyId?: string; // Reference to Company
+  contactType?: ContactType;
+  subtag?: string;
+  tags?: string[];
   nextFollowUpDate?: string; // Manual override for follow-up date (ISO string)
   status: "active" | "parked" | "closed"; // Track if person is active, parked, or closed
   createdAt: string;
@@ -105,6 +179,7 @@ export interface Event {
   time?: string; // Time in HH:MM format
   type: string; // Event type ID (references EventTypeDefinition.id)
   notes?: string;
+  externalId?: string; // Outlook message or calendar event id, so a later sync does not import it again
   customFollowUpDays?: number; // Custom override for this specific event's follow-up threshold
   createdAt: string;
   updatedAt: string;

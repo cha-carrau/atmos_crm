@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import Navigation from "@/components/Navigation";
+import AuthGate from "@/components/AuthGate";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tempo - Outreach CRM",
+  title: "AtmosOne CRM",
   description: "Track your outreach and follow-ups",
 };
 
@@ -30,8 +30,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="bg-gray-50 dark:bg-gray-950">
-        <Navigation />
-        <main>{children}</main>
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );
