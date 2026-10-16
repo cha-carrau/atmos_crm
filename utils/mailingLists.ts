@@ -1,5 +1,5 @@
-import { ContactType, MailingList, Person, getContactTypeDefinition } from "@/types";
-import { CustomSubtagsByType, EMPTY_CUSTOM_SUBTAGS, labelForSubtag } from "@/utils/contactSubtags";
+import { ContactType, MailingList, Person } from "@/types";
+import { ContactTagCatalog, findContactType, labelForSubtag } from "@/utils/contactSubtags";
 
 export interface ListFilter {
   contactType?: ContactType;
@@ -42,19 +42,19 @@ export function peopleForList(people: Person[] | null | undefined, list: Partial
 
 export function describeList(
   list: Partial<Pick<MailingList, "contactType" | "subtags" | "tags">> | null | undefined,
-  customByType: CustomSubtagsByType = EMPTY_CUSTOM_SUBTAGS
+  catalog: ContactTagCatalog = {}
 ) {
   if (!list) return "No filters";
   const subtags = asStringList(list.subtags);
   const tags = asStringList(list.tags);
   const parts: string[] = [];
   if (list.contactType) {
-    parts.push(getContactTypeDefinition(list.contactType)?.label || list.contactType);
+    parts.push(findContactType(list.contactType, catalog.customTypes)?.label || list.contactType);
   }
   if (subtags.length > 0) {
     parts.push(
       subtags
-        .map((subtag) => labelForSubtag(list.contactType, subtag, customByType) || subtag)
+        .map((subtag) => labelForSubtag(list.contactType, subtag, catalog.byType) || subtag)
         .join(", ")
     );
   }

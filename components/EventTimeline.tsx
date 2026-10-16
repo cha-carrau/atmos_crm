@@ -8,9 +8,13 @@ import EditEventModal from "./EditEventModal";
 
 interface EventTimelineProps {
   events: Event[];
+  emptyMessage?: string;
 }
 
-export default function EventTimeline({ events }: EventTimelineProps) {
+export default function EventTimeline({
+  events,
+  emptyMessage = "No events yet. Add your first interaction!",
+}: EventTimelineProps) {
   const { deleteEvent, getEventTypeById } = useStore();
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -18,9 +22,7 @@ export default function EventTimeline({ events }: EventTimelineProps) {
   if (events.length === 0) {
     return (
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-8 text-center">
-        <p className="text-gray-500 dark:text-gray-400">
-          No events yet. Add your first interaction!
-        </p>
+        <p className="text-gray-500 dark:text-gray-400">{emptyMessage}</p>
       </div>
     );
   }

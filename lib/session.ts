@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { secureCookie } from "@/lib/host";
 import { Member, readWorkspace } from "@/lib/workspaceDb";
 
 export const SESSION_COOKIE = "atmosone_session";
@@ -13,6 +14,7 @@ export async function writeSessionCookie(token: string) {
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: secureCookie(),
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });

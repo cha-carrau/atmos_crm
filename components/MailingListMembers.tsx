@@ -4,18 +4,40 @@ import { useState } from "react";
 import Link from "next/link";
 import { Person } from "@/types";
 import { useStore } from "@/store/useStore";
+import { downloadCSV } from "@/utils/csvHelpers";
+import { collectEmails } from "@/lib/mergePeople";
 import ContactTypeBadges from "./ContactTypeBadges";
 
 interface MailingListMembersProps {
   people: Person[];
+  listName?: string;
 }
 
-export default function MailingListMembers({ people }: MailingListMembersProps) {
+function mailingListCsvFilename(listName?: string) {
+  const slug = (listName || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80)
+    .replace(/-+$/g, "");
+  return `${slug || "mailing-list"}.csv`;
+}
+
+function emailCell(email: string) {
+  if (/[",\n\r]/.test(email)) {
+    return `"${email.replace(/"/g, '""')}"`;
+  }
+  return email;
+}
+
+export default function MailingListMembers({ people, listName }: MailingListMembersProps) {
   const { getCompany } = useStore();
   const [copied, setCopied] = useState(false);
-  const withEmail = people.filter((person) => person.email);
-  const missingEmail = people.filter((person) => !person.email);
-  const emails = withEmail.map((person) => person.email).join(", ");
+  const addresses = people.flatMap((person) => collectEmails(person));
+  const missingEmail = people.filter((person) => collectEmails(person).length === 0);
+  const emails = addresses.join(", ");
 
   const copyEmails = async () => {
     if (!emails) return;
@@ -36,24 +58,36 @@ export default function MailingListMembers({ people }: MailingListMembersProps) 
     window.setTimeout(() => setCopied(false), 2000);
   };
 
+  const downloadEmails = () => {
+    if (addresses.length === 0) return;
+    downloadCSV(["Email", ...addresses.map(emailCell)].join("\n"), mailingListCsvFilename(listName));
+  };
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <button
           onClick={copyEmails}
-          disabled={withEmail.length === 0}
+          disabled={addresses.length === 0}
           className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:bg-emerald-600 text-white text-sm font-medium rounded-lg transition-colors duration-200"
         >
-          {copied ? "Copied" : `Copy ${withEmail.length} email${withEmail.length === 1 ? "" : "s"}`}
+          {copied ? "Copied" : `Copy ${addresses.length} email${addresses.length === 1 ? "" : "s"}`}
         </button>
-        {withEmail.length > 0 && (
+        {addresses.length > 0 && (
           <a
-            href={`mailto:?bcc=${encodeURIComponent(withEmail.map((person) => person.email).join(","))}`}
+            href={`mailto:?bcc=${encodeURIComponent(addresses.join(","))}`}
             className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
           >
             Email list
           </a>
         )}
+        <button
+          onClick={downloadEmails}
+          disabled={addresses.length === 0}
+          className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:hover:bg-white dark:disabled:hover:bg-gray-800 rounded-lg font-medium transition-colors duration-200 text-sm"
+        >
+          Download CSV
+        </button>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {people.length} {people.length === 1 ? "person" : "people"}
           {missingEmail.length > 0 ? ` · ${missingEmail.length} missing email` : ""}
@@ -80,7 +114,7 @@ export default function MailingListMembers({ people }: MailingListMembersProps) 
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-white">{person.name}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {person.email || "No email"}
+                    {collectEmails(person).join(" · ") || "No email"}
                     {company ? ` · ${company.name}` : ""}
                   </p>
                 </div>

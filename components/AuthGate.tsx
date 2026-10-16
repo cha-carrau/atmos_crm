@@ -166,7 +166,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                   {saving ? "Creating..." : "Create workspace"}
                 </button>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Contacts already saved in this browser are moved into the shared workspace.
+                  If this browser already has contacts and the workspace is empty, they are moved into the shared workspace.
                 </p>
               </form>
             </>

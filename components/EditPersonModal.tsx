@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
 import { ContactType, Person } from "@/types";
+import { storedEmail, storedSecondaryEmail } from "@/lib/mergePeople";
+import { resolveCompanyId } from "@/lib/resolveCompany";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 import ContactTagFields from "./ContactTagFields";
 
@@ -21,6 +23,7 @@ export default function EditPersonModal({
   const [formData, setFormData] = useState({
     name: person.name,
     email: person.email || "",
+    secondaryEmail: person.secondaryEmail || "",
     jobTitle: person.jobTitle || "",
     linkedinUrl: person.linkedinUrl || "",
     companyId: person.companyId || "",
@@ -30,13 +33,18 @@ export default function EditPersonModal({
     subtag: person.subtag || "",
     tags: person.tags || [],
   });
+  const [companyInputText, setCompanyInputText] = useState("");
   const [typeError, setTypeError] = useState("");
 
-  // Update form when person changes
+  // Update form when the modal opens or the person changes
   useEffect(() => {
+    if (!isOpen) return;
+    const company = useStore.getState().companies.find((item) => item.id === person.companyId);
+    setCompanyInputText(company?.name || "");
     setFormData({
       name: person.name,
       email: person.email || "",
+      secondaryEmail: person.secondaryEmail || "",
       jobTitle: person.jobTitle || "",
       linkedinUrl: person.linkedinUrl || "",
       companyId: person.companyId || "",
@@ -47,7 +55,7 @@ export default function EditPersonModal({
       tags: person.tags || [],
     });
     setTypeError("");
-  }, [person]);
+  }, [isOpen, person]);
 
   if (!isOpen) return null;
 
@@ -61,12 +69,18 @@ export default function EditPersonModal({
       setTypeError("Choose a contact type.");
       return;
     }
+    const finalCompanyId = resolveCompanyId(
+      companyInputText,
+      useStore.getState().companies,
+      addCompany
+    );
     updatePerson(person.id, {
       name: formData.name,
-      email: formData.email || undefined,
+      email: storedEmail(formData.email),
+      secondaryEmail: storedSecondaryEmail(formData.email, formData.secondaryEmail),
       jobTitle: formData.jobTitle || undefined,
       linkedinUrl: formData.linkedinUrl || undefined,
-      companyId: formData.companyId || undefined,
+      companyId: finalCompanyId,
       notes: formData.notes || undefined,
       status: formData.status as "active" | "parked" | "closed",
       contactType: formData.contactType,
@@ -117,6 +131,21 @@ export default function EditPersonModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Secondary email
+            </label>
+            <input
+              type="email"
+              value={formData.secondaryEmail}
+              onChange={(e) =>
+                setFormData({ ...formData, secondaryEmail: e.target.value })
+              }
+              className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
+              placeholder="also@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Job Title
             </label>
             <input
@@ -141,6 +170,7 @@ export default function EditPersonModal({
                 setFormData({ ...formData, companyId: companyId || "" })
               }
               onCreateCompany={handleCreateCompany}
+              onInputChange={setCompanyInputText}
             />
           </div>
 

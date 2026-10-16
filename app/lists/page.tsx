@@ -4,8 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { CONTACT_TYPES } from "@/types";
-import { subtagsForContactType } from "@/utils/contactSubtags";
+import { allContactTypes, subtagsForContactType } from "@/utils/contactSubtags";
 import { describeList, peopleForList } from "@/utils/mailingLists";
 import MailingListModal from "@/components/MailingListModal";
 
@@ -14,6 +13,8 @@ export default function ListsPage() {
   const safePeople = Array.isArray(people) ? people : [];
   const safeLists = Array.isArray(mailingLists) ? mailingLists : [];
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
+  const contactTypes = allContactTypes(customTypes);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -38,7 +39,7 @@ export default function ListsPage() {
           By type
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-          {CONTACT_TYPES.map((type) => {
+          {contactTypes.map((type) => {
             const peopleOfType = safePeople.filter((person) => person?.contactType === type.id);
             const subtypes = subtagsForContactType(type.id, customByType);
             return (
@@ -113,7 +114,9 @@ export default function ListsPage() {
                     <h3 className="text-base font-medium text-gray-900 dark:text-white">{list.name}</h3>
                     <span className="text-sm text-gray-500 dark:text-gray-400">{count}</span>
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{describeList(list, customByType)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {describeList(list, { byType: customByType, customTypes })}
+                  </p>
                 </Link>
               );
             })}

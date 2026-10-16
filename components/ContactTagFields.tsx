@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { CONTACT_TYPES, ContactType, getContactTypeDefinition } from "@/types";
+import { useRef, useState } from "react";
+import { ContactType } from "@/types";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { isCustomizableContactType, subtagsForContactType } from "@/utils/contactSubtags";
+import { allContactTypes, findContactType, subtagsForContactType } from "@/utils/contactSubtags";
 
 interface ContactTagFieldsProps {
   contactType: ContactType | "";
@@ -20,6 +20,12 @@ const chipClass = (selected: boolean) =>
       : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
   }`;
 
+const fieldClass =
+  "block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm";
+
+const addButtonClass =
+  "px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm";
+
 export default function ContactTagFields({
   contactType,
   subtag,
@@ -30,12 +36,18 @@ export default function ContactTagFields({
   const [tagInput, setTagInput] = useState("");
   const [subtypeInput, setSubtypeInput] = useState("");
   const [subtypeError, setSubtypeError] = useState("");
+  const [addingType, setAddingType] = useState(false);
+  const [typeInput, setTypeInput] = useState("");
+  const [typeError, setTypeError] = useState("");
+  const typeInputRef = useRef<HTMLInputElement>(null);
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
+  const addCustomType = useContactSubtags((state) => state.addType);
   const addCustomSubtag = useContactSubtags((state) => state.addSubtag);
-  const typeDef = getContactTypeDefinition(contactType);
+  const types = allContactTypes(customTypes);
+  const typeDef = findContactType(contactType, customTypes);
   const safeTags = Array.isArray(tags) ? tags : [];
   const subtypeOptions = subtagsForContactType(contactType || undefined, customByType);
-  const canAddSubtype = isCustomizableContactType(contactType);
 
   const setType = (next: ContactType) => {
     const subtagStillValid = subtagsForContactType(next, customByType).some((item) => item.id === subtag);
@@ -48,8 +60,26 @@ export default function ContactTagFields({
     });
   };
 
+  const openAddType = () => {
+    setAddingType(true);
+    setTypeError("");
+    requestAnimationFrame(() => typeInputRef.current?.focus());
+  };
+
+  const addType = () => {
+    const result = addCustomType(typeInput);
+    if (!result.ok) {
+      setTypeError(result.error);
+      return;
+    }
+    setTypeInput("");
+    setTypeError("");
+    setAddingType(false);
+    setType(result.type.id);
+  };
+
   const addSubtype = () => {
-    if (!canAddSubtype) return;
+    if (!contactType) return;
     const result = addCustomSubtag(contactType, subtypeInput);
     if (!result.ok) {
       setSubtypeError(result.error);
@@ -78,7 +108,7 @@ export default function ContactTagFields({
           Contact type *
         </label>
         <div className="grid grid-cols-2 gap-2">
-          {CONTACT_TYPES.map((type) => (
+          {types.map((type) => (
             <button
               key={type.id}
               type="button"
@@ -88,14 +118,58 @@ export default function ContactTagFields({
               {type.label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={openAddType}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium border border-dashed transition-colors duration-200 ${
+              addingType
+                ? "border-emerald-400 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50"
+                : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:border-emerald-300 hover:text-emerald-700 dark:hover:border-emerald-700 dark:hover:text-emerald-300"
+            }`}
+          >
+            Add type
+          </button>
         </div>
+        {addingType && (
+          <div className="mt-2">
+            <div className="flex gap-2">
+              <input
+                ref={typeInputRef}
+                type="text"
+                value={typeInput}
+                onChange={(e) => {
+                  setTypeInput(e.target.value);
+                  if (typeError) setTypeError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addType();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setAddingType(false);
+                    setTypeError("");
+                  }
+                }}
+                className={fieldClass}
+                placeholder="Type name"
+                aria-label="New contact type name"
+              />
+              <button type="button" onClick={addType} className={addButtonClass}>
+                Add
+              </button>
+            </div>
+            {typeError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{typeError}</p>}
+          </div>
+        )}
         {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
 
-      {(subtypeOptions.length > 0 || canAddSubtype) && (
+      {contactType && (
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {typeDef?.subtagLabel || "Subtype"}
+            {typeDef?.subtagLabel || "Sub-category"}
           </label>
           {subtypeOptions.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -117,38 +191,33 @@ export default function ContactTagFields({
               ))}
             </div>
           )}
-          {canAddSubtype && (
-            <div className={subtypeOptions.length > 0 ? "mt-2" : ""}>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={subtypeInput}
-                  onChange={(e) => {
-                    setSubtypeInput(e.target.value);
-                    if (subtypeError) setSubtypeError("");
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addSubtype();
-                    }
-                  }}
-                  className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
-                  placeholder="Add a subtype"
-                />
-                <button
-                  type="button"
-                  onClick={addSubtype}
-                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
-                >
-                  Add
-                </button>
-              </div>
-              {subtypeError && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{subtypeError}</p>
-              )}
+          <div className={subtypeOptions.length > 0 ? "mt-2" : ""}>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={subtypeInput}
+                onChange={(e) => {
+                  setSubtypeInput(e.target.value);
+                  if (subtypeError) setSubtypeError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSubtype();
+                  }
+                }}
+                className={fieldClass}
+                placeholder="Add a sub-category"
+                aria-label="New sub-category name"
+              />
+              <button type="button" onClick={addSubtype} className={addButtonClass}>
+                Add
+              </button>
             </div>
-          )}
+            {subtypeError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{subtypeError}</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -167,14 +236,10 @@ export default function ContactTagFields({
                 addTag();
               }
             }}
-            className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
+            className={fieldClass}
             placeholder="Add a tag and press Enter"
           />
-          <button
-            type="button"
-            onClick={addTag}
-            className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 text-sm"
-          >
+          <button type="button" onClick={addTag} className={addButtonClass}>
             Add
           </button>
         </div>

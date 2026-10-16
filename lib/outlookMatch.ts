@@ -16,6 +16,7 @@ export interface CrmPersonRef {
   id: string;
   name: string;
   email?: string;
+  secondaryEmail?: string;
 }
 
 export interface ExistingExternalRef {
@@ -185,11 +186,13 @@ export function matchOutlookImport(input: {
   const emailIndex = new Map<string, CrmPersonRef[]>();
 
   for (const person of input.people) {
-    const email = normalizeEmail(person.email);
-    if (!email) continue;
-    const matches = emailIndex.get(email) ?? [];
-    matches.push(person);
-    emailIndex.set(email, matches);
+    for (const raw of [person.email, person.secondaryEmail]) {
+      const email = normalizeEmail(raw);
+      if (!email) continue;
+      const matches = emailIndex.get(email) ?? [];
+      if (!matches.some((item) => item.id === person.id)) matches.push(person);
+      emailIndex.set(email, matches);
+    }
   }
 
   const seen = new Set(input.existing.map((item) => `${item.personId}::${item.externalId}`));

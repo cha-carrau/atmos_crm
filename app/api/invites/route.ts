@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendInviteEmail } from "@/lib/email";
+import { appOrigin } from "@/lib/host";
 import { getCurrentMember } from "@/lib/session";
 import {
   createId,
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = appOrigin(request);
   let link = "";
   let error: string | null = null;
 

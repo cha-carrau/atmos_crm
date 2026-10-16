@@ -23,24 +23,33 @@ export default function CompanyAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const lastSyncedId = useRef<string | undefined>(undefined);
+  const arrowedRef = useRef(false);
 
-  // Set initial value from selected company
+  // Fill the field from the selected company, but don't overwrite a name
+  // the user has already typed over that selection.
   useEffect(() => {
-    if (selectedCompanyId) {
-      const company = companies.find((c) => c.id === selectedCompanyId);
-      if (company) {
-        setInputValue(company.name);
-      }
+    if (!selectedCompanyId) {
+      lastSyncedId.current = undefined;
+      return;
     }
-  }, [selectedCompanyId, companies]);
+    if (lastSyncedId.current === selectedCompanyId) return;
+    const company = companies.find((c) => c.id === selectedCompanyId);
+    if (!company) return;
+    setInputValue(company.name);
+    onInputChange?.(company.name);
+    lastSyncedId.current = selectedCompanyId;
+  }, [selectedCompanyId, companies, onInputChange]);
+
+  const trimmedInput = inputValue.trim();
 
   // Filter companies based on input
   const filteredCompanies = companies.filter((company) =>
     company.name.toLowerCase().includes(inputValue.toLowerCase())
   );
 
-  const exactMatch = filteredCompanies.find(
-    (c) => c.name.toLowerCase() === inputValue.toLowerCase()
+  const exactMatch = companies.find(
+    (c) => c.name.trim().toLowerCase() === trimmedInput.toLowerCase()
   );
 
   // Handle input change
@@ -49,14 +58,14 @@ export default function CompanyAutocomplete({
     setInputValue(value);
     setIsOpen(true);
     setHighlightedIndex(0);
-    
-    // Notify parent of input text change
-    if (onInputChange) {
-      onInputChange(value);
-    }
-    
-    // Clear selection if input is cleared
-    if (!value) {
+    arrowedRef.current = false;
+    onInputChange?.(value);
+
+    const selected = companies.find((c) => c.id === selectedCompanyId);
+    const stillSelected =
+      selected &&
+      selected.name.trim().toLowerCase() === value.trim().toLowerCase();
+    if (selectedCompanyId && !stillSelected) {
       onSelectCompany(undefined);
     }
   };
@@ -64,18 +73,25 @@ export default function CompanyAutocomplete({
   // Handle company selection
   const handleSelectCompany = (company: Company) => {
     setInputValue(company.name);
+    onInputChange?.(company.name);
     onSelectCompany(company.id);
     setIsOpen(false);
   };
 
-  // Handle creating new company
+  // Handle creating new company from the dropdown. Saving the person also
+  // creates a company from whatever is typed, so this is optional.
   const handleCreateCompany = () => {
-    if (inputValue.trim() && !exactMatch) {
-      const newCompanyId = onCreateCompany(inputValue.trim());
-      setInputValue(inputValue.trim());
-      onSelectCompany(newCompanyId);
-      setIsOpen(false);
+    const name = inputValue.trim();
+    if (!name) return;
+    if (exactMatch) {
+      handleSelectCompany(exactMatch);
+      return;
     }
+    const newCompanyId = onCreateCompany(name);
+    setInputValue(name);
+    onInputChange?.(name);
+    onSelectCompany(newCompanyId);
+    setIsOpen(false);
   };
 
   // Handle keyboard navigation
@@ -87,25 +103,40 @@ export default function CompanyAutocomplete({
       return;
     }
 
-    const totalOptions = filteredCompanies.length + (inputValue && !exactMatch ? 1 : 0);
+    const totalOptions = filteredCompanies.length + (trimmedInput && !exactMatch ? 1 : 0);
 
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
+        arrowedRef.current = true;
         setHighlightedIndex((prev) => (prev + 1) % totalOptions);
         break;
       case "ArrowUp":
         e.preventDefault();
+        arrowedRef.current = true;
         setHighlightedIndex((prev) => (prev - 1 + totalOptions) % totalOptions);
         break;
-      case "Enter":
-        e.preventDefault();
-        if (highlightedIndex < filteredCompanies.length) {
-          handleSelectCompany(filteredCompanies[highlightedIndex]);
-        } else if (inputValue && !exactMatch) {
-          handleCreateCompany();
+      case "Enter": {
+        const highlighted = filteredCompanies[highlightedIndex];
+        if (arrowedRef.current && highlighted) {
+          e.preventDefault();
+          handleSelectCompany(highlighted);
+          break;
         }
+        if (
+          arrowedRef.current &&
+          trimmedInput &&
+          !exactMatch &&
+          highlightedIndex >= filteredCompanies.length
+        ) {
+          e.preventDefault();
+          handleCreateCompany();
+          break;
+        }
+        // A typed name is enough. Don't replace it with a partial match.
+        setIsOpen(false);
         break;
+      }
       case "Escape":
         setIsOpen(false);
         break;
@@ -172,7 +203,7 @@ export default function CompanyAutocomplete({
             )
           )}
 
-          {inputValue && !exactMatch && (
+          {trimmedInput && !exactMatch && (
             <button
               type="button"
               onClick={handleCreateCompany}

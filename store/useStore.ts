@@ -10,7 +10,9 @@ import {
   MailingList,
   ContactType,
 } from "@/types";
+import { assignEmails, mergeNotes, reassignEvents } from "@/lib/mergePeople";
 import { bindStore, markDirty, WorkspaceSnapshot } from "@/store/sync";
+import { WorkspaceData } from "@/lib/dataExchange";
 
 interface TempoState {
   // Data
@@ -27,6 +29,12 @@ interface TempoState {
   addPerson: (person: Omit<Person, "id" | "createdAt" | "updatedAt">) => string;
   updatePerson: (id: string, updates: Partial<Person>) => void;
   deletePerson: (id: string) => void;
+  mergePeople: (
+    keepId: string,
+    removeId: string,
+    primaryEmail?: string,
+    secondaryEmail?: string
+  ) => void;
   getPerson: (id: string) => Person | undefined;
 
   // Company actions
@@ -71,6 +79,7 @@ interface TempoState {
     customEventTypes: EventTypeDefinition[];
     mailingLists?: MailingList[];
   }) => void;
+  applyMergedData: (data: WorkspaceData) => void;
 
   // Follow-up logic
   getFollowUpStatus: (personId: string) => FollowUpStatus;
@@ -180,6 +189,49 @@ export const useStore = create<TempoState>()((setState, get) => {
           // Also delete all events for this person
           events: state.events.filter((e) => e.personId !== id),
         })),
+
+      mergePeople: (keepId, removeId, primaryEmail, secondaryEmail) => {
+        const current = get();
+        const keep = current.people.find((person) => person.id === keepId);
+        const remove = current.people.find((person) => person.id === removeId);
+        if (!keep || !remove || keepId === removeId) return;
+
+        const { primary, secondary, extras } = assignEmails(
+          keep,
+          remove,
+          primaryEmail,
+          secondaryEmail
+        );
+        const updatedAt = getTimestamp();
+
+        commit((state) => ({
+          people: state.people
+            .filter((person) => person.id !== removeId)
+            .map((person) =>
+              person.id === keepId
+                ? {
+                    ...person,
+                    email: primary,
+                    secondaryEmail: secondary,
+                    jobTitle: person.jobTitle || remove.jobTitle,
+                    linkedinUrl: person.linkedinUrl || remove.linkedinUrl,
+                    companyId: person.companyId || remove.companyId,
+                    contactType: person.contactType || remove.contactType,
+                    subtag:
+                      person.subtag ||
+                      (!person.contactType || person.contactType === remove.contactType
+                        ? remove.subtag
+                        : undefined),
+                    nextFollowUpDate: person.nextFollowUpDate || remove.nextFollowUpDate,
+                    notes: mergeNotes(person.notes, remove.notes, extras),
+                    tags: [...new Set([...(person.tags || []), ...(remove.tags || [])])],
+                    updatedAt,
+                  }
+                : person
+            ),
+          events: reassignEvents(state.events, keepId, removeId, updatedAt),
+        }));
+      },
 
       getPerson: (id) => get().people.find((p) => p.id === id),
 
@@ -528,6 +580,16 @@ export const useStore = create<TempoState>()((setState, get) => {
           events: data.events,
           customEventTypes: data.customEventTypes || [],
           mailingLists: data.mailingLists !== undefined ? data.mailingLists : get().mailingLists,
+        });
+      },
+
+      applyMergedData: (data) => {
+        commit({
+          people: migratePeopleStatus(data.people),
+          companies: data.companies,
+          events: migrateEventTypes(data.events),
+          customEventTypes: data.customEventTypes || [],
+          mailingLists: data.mailingLists || [],
         });
       },
   };

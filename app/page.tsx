@@ -27,7 +27,9 @@ export default function Home() {
     
     // Search in person fields
     const nameMatch = person.name.toLowerCase().includes(query);
-    const emailMatch = person.email?.toLowerCase().includes(query);
+    const emailMatch =
+      person.email?.toLowerCase().includes(query) ||
+      person.secondaryEmail?.toLowerCase().includes(query);
     const jobTitleMatch = person.jobTitle?.toLowerCase().includes(query);
     const notesMatch = person.notes?.toLowerCase().includes(query);
     const companyMatch = company?.name.toLowerCase().includes(query);

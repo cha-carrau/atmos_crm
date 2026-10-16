@@ -9,6 +9,7 @@ import DeleteEventTypeModal from "@/components/DeleteEventTypeModal";
 import Badge from "@/components/Badge";
 import { exportToCSV, parseCSV, downloadCSV } from "@/utils/csvHelpers";
 import TeamSettings from "@/components/TeamSettings";
+import DataExchange from "@/components/DataExchange";
 
 export default function SettingsPage() {
   const { getAllEventTypes, updateEventType, exportData, importData } = useStore();
@@ -189,6 +190,8 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+
+        <DataExchange />
 
         <TeamSettings />
 

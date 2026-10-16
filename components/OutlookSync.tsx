@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useStore } from "@/store/useStore";
@@ -13,6 +13,8 @@ import {
   SuggestionSource,
   toLocalDateAndTime,
 } from "@/lib/outlookMatch";
+import { findMergeCandidates } from "@/lib/mergePeople";
+import MergeSuggestionsModal, { MergeSuggestionsButton } from "@/components/MergeSuggestions";
 
 const TYPE_LABELS: Record<ImportEventDraft["type"], string> = {
   email: "Email sent",
@@ -107,6 +109,9 @@ export default function OutlookSync({ initialStatus }: { initialStatus: OutlookC
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
   const [addedNotice, setAddedNotice] = useState("");
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const people = useStore((state) => state.people);
+  const mergeCount = useMemo(() => findMergeCandidates(people).length, [people]);
 
   const errorCode = params.get("error");
   const detail = params.get("detail")?.slice(0, 180);
@@ -149,6 +154,7 @@ export default function OutlookSync({ initialStatus }: { initialStatus: OutlookC
             id: person.id,
             name: person.name,
             email: person.email,
+            secondaryEmail: person.secondaryEmail,
           })),
           existingExternalIds: state.events
             .filter((event) => event.externalId)
@@ -172,6 +178,7 @@ export default function OutlookSync({ initialStatus }: { initialStatus: OutlookC
       setSuggestions(body.suggestions);
       setSelected(new Set());
       setStatus(await loadStatus());
+      if (findMergeCandidates(useStore.getState().people).length > 0) setMergeOpen(true);
     } catch {
       setSyncError("Sync failed before Microsoft Graph responded.");
     } finally {
@@ -245,18 +252,22 @@ export default function OutlookSync({ initialStatus }: { initialStatus: OutlookC
       }.`
     );
     setAdding(false);
+    if (findMergeCandidates(useStore.getState().people).length > 0) setMergeOpen(true);
   }
 
   const redirectUri = status?.redirectUri || "http://localhost:3000/api/outlook/callback";
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Outlook</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Sign in with Microsoft and import past emails and meetings onto people who already exist in AtmosOne.
-          New people are only added when you choose them.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Outlook</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Sign in with Microsoft and import past emails and meetings onto people who already exist in AtmosOne.
+            New people are only added when you choose them.
+          </p>
+        </div>
+        <MergeSuggestionsButton count={mergeCount} onClick={() => setMergeOpen(true)} />
       </div>
 
       {errorCode && (
@@ -466,6 +477,8 @@ export default function OutlookSync({ initialStatus }: { initialStatus: OutlookC
           </ul>
         </section>
       )}
+
+      <MergeSuggestionsModal open={mergeOpen} onClose={() => setMergeOpen(false)} />
     </div>
   );
 }

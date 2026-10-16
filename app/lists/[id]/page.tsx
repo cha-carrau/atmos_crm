@@ -15,6 +15,7 @@ export default function SavedListPage() {
   const listId = params.id as string;
   const { people, getMailingList, deleteMailingList } = useStore();
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
   const [isEditing, setIsEditing] = useState(false);
   const list = getMailingList(listId);
 
@@ -45,7 +46,9 @@ export default function SavedListPage() {
         <div className="flex items-start justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{list.name}</h1>
-            <p className="text-gray-600 dark:text-gray-400">{describeList(list, customByType)}</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              {describeList(list, { byType: customByType, customTypes })}
+            </p>
           </div>
           <div className="flex gap-2">
             <button
@@ -65,7 +68,7 @@ export default function SavedListPage() {
             </button>
           </div>
         </div>
-        <MailingListMembers people={members} />
+        <MailingListMembers people={members} listName={list.name} />
       </div>
       <MailingListModal isOpen={isEditing} onClose={() => setIsEditing(false)} list={list} />
     </div>

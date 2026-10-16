@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { publicUrl, secureCookie } from "@/lib/host";
 import { buildAuthorizeUrl, createOAuthState, OAUTH_STATE_COOKIE, OutlookError } from "@/lib/outlook";
 
 export const runtime = "nodejs";
@@ -11,13 +12,13 @@ export async function GET(request: Request) {
     response.cookies.set(OAUTH_STATE_COOKIE, state, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookie(),
       path: "/",
       maxAge: 60 * 10,
     });
     return response;
   } catch (error) {
     const code = error instanceof OutlookError ? error.code : "not_configured";
-    return NextResponse.redirect(new URL(`/outlook?error=${code}`, request.url));
+    return NextResponse.redirect(publicUrl(request, `/outlook?error=${code}`));
   }
 }

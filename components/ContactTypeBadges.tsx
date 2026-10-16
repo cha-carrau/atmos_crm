@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Person, getContactTypeDefinition } from "@/types";
+import { Person } from "@/types";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { labelForSubtag } from "@/utils/contactSubtags";
+import { findContactType, labelForSubtag } from "@/utils/contactSubtags";
 import Badge from "./Badge";
 
 interface ContactTypeBadgesProps {
@@ -13,8 +13,9 @@ interface ContactTypeBadgesProps {
 
 export default function ContactTypeBadges({ person, linked = false }: ContactTypeBadgesProps) {
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
   if (!person) return null;
-  const typeDef = getContactTypeDefinition(person.contactType);
+  const typeDef = findContactType(person.contactType, customTypes);
   const subtagLabel = labelForSubtag(person.contactType, person.subtag, customByType);
   const tags = Array.isArray(person?.tags) ? person.tags : [];
 

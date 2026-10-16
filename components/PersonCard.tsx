@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Person, Company, FollowUpStatus } from "@/types";
+import { collectEmails } from "@/lib/mergePeople";
 import FollowUpBadge from "./FollowUpBadge";
 import Badge from "./Badge";
 import ContactTypeBadges from "./ContactTypeBadges";
@@ -61,10 +62,17 @@ export default function PersonCard({
           </Badge>
         </div>
 
-        {person.email && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-            {person.email}
-          </p>
+        {collectEmails(person).length > 0 && (
+          <div className="mb-2 space-y-0.5">
+            {collectEmails(person).map((email, index) => (
+              <p key={email} className="text-xs text-gray-500 dark:text-gray-400">
+                {email}
+                {index > 0 && (
+                  <span className="text-gray-400 dark:text-gray-500"> · secondary</span>
+                )}
+              </p>
+            ))}
+          </div>
         )}
 
         {followUpStatus?.lastEvent && (

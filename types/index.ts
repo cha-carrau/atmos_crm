@@ -74,7 +74,7 @@ export enum EventType {
   REPLY_RECEIVED = "Reply Received",
 }
 
-export type ContactType = "investor" | "client" | "partner" | "hire";
+export type ContactType = "investor" | "client" | "partner" | "hire" | (string & {});
 
 export interface ContactSubtag {
   id: string;
@@ -159,6 +159,7 @@ export interface Person {
   id: string;
   name: string;
   email?: string;
+  secondaryEmail?: string;
   jobTitle?: string;
   linkedinUrl?: string;
   notes?: string;

@@ -40,7 +40,12 @@ export async function POST(request: Request) {
       memberId,
       createdAt: new Date().toISOString(),
     });
-    if (imported) {
+    const serverEmpty =
+      current.data.people.length === 0 &&
+      current.data.companies.length === 0 &&
+      current.data.events.length === 0 &&
+      current.data.mailingLists.length === 0;
+    if (imported && serverEmpty) {
       current.data = {
         people: imported.people || [],
         companies: imported.companies || [],

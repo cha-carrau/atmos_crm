@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import EventTimeline from "@/components/EventTimeline";
+import MessageList, { isMessageCategory } from "@/components/MessageList";
+import PersonNotes from "@/components/PersonNotes";
 import AddEventModal from "@/components/AddEventModal";
 import EditPersonModal from "@/components/EditPersonModal";
 import FollowUpBadge from "@/components/FollowUpBadge";
@@ -24,6 +26,7 @@ export default function PersonDetailPage() {
     getPerson,
     getCompany,
     getEventsByPerson,
+    getEventTypeById,
     getFollowUpStatus,
     deletePerson,
     updatePerson,
@@ -45,6 +48,12 @@ export default function PersonDetailPage() {
   const person = getPerson(personId);
   const company = person?.companyId ? getCompany(person.companyId) : undefined;
   const events = getEventsByPerson(personId);
+  const messages = events.filter((event) =>
+    isMessageCategory(getEventTypeById(event.type)?.category)
+  );
+  const otherEvents = events.filter(
+    (event) => !isMessageCategory(getEventTypeById(event.type)?.category)
+  );
   const followUpStatus = getFollowUpStatus(personId);
 
   if (!person) {
@@ -157,12 +166,27 @@ export default function PersonDetailPage() {
               {person.jobTitle && (
                 <p className="text-gray-600 dark:text-gray-400 mb-2">
                   {person.jobTitle}
-                  {company && ` at ${company.name}`}
+                  {company && (
+                    <>
+                      {" at "}
+                      <Link
+                        href={`/companies/${company.id}`}
+                        className="text-emerald-600 dark:text-emerald-400 hover:underline"
+                      >
+                        {company.name}
+                      </Link>
+                    </>
+                  )}
                 </p>
               )}
               {!person.jobTitle && company && (
-                <p className="text-gray-600 dark:text-gray-400 mb-2">
-                  {company.name}
+                <p className="mb-2">
+                  <Link
+                    href={`/companies/${company.id}`}
+                    className="text-emerald-600 dark:text-emerald-400 hover:underline"
+                  >
+                    {company.name}
+                  </Link>
                 </p>
               )}
             </div>
@@ -182,7 +206,7 @@ export default function PersonDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {person.email && (
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
@@ -193,6 +217,20 @@ export default function PersonDetailPage() {
                   className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
                 >
                   {person.email}
+                </a>
+              </div>
+            )}
+            {person.secondaryEmail &&
+              person.secondaryEmail.trim().toLowerCase() !== person.email?.trim().toLowerCase() && (
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  Secondary email
+                </label>
+                <a
+                  href={`mailto:${person.secondaryEmail}`}
+                  className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline"
+                >
+                  {person.secondaryEmail}
                 </a>
               </div>
             )}
@@ -226,22 +264,31 @@ export default function PersonDetailPage() {
             )}
           </div>
 
-          {person.notes && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                Notes
-              </label>
-              <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                {person.notes}
-              </p>
-            </div>
-          )}
+        </div>
+
+        <PersonNotes personId={person.id} notes={person.notes} />
+
+        <div className="mb-8">
+          <div className="mb-4">
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+              Messages ({messages.length})
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Emails and other messages sent to or received from this person.
+            </p>
+          </div>
+          <MessageList events={messages} />
         </div>
 
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-white">
-            Events ({events.length})
-          </h2>
+          <div>
+            <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+              Events ({otherEvents.length})
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Meetings and other interactions.
+            </p>
+          </div>
           <button
             onClick={() => setIsEventModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
@@ -263,7 +310,10 @@ export default function PersonDetailPage() {
           </button>
         </div>
 
-        <EventTimeline events={events} />
+        <EventTimeline
+          events={otherEvents}
+          emptyMessage="No meetings yet. Add an event to record a meeting or call."
+        />
       </div>
 
       <AddEventModal

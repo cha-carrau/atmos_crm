@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useStore } from "@/store/useStore";
 import PersonCard from "@/components/PersonCard";
 import AddPersonModal from "@/components/AddPersonModal";
+import AddPeopleToCompanyModal from "@/components/AddPeopleToCompanyModal";
 import EditCompanyModal from "@/components/EditCompanyModal";
 
 export default function CompanyDetailPage() {
@@ -26,6 +27,7 @@ export default function CompanyDetailPage() {
   } = useStore();
 
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
+  const [isAddPeopleOpen, setIsAddPeopleOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -167,29 +169,37 @@ export default function CompanyDetailPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 gap-3">
           <h2 className="text-lg font-medium text-gray-900 dark:text-white">
             People ({people.length})
           </h2>
-          <button
-            onClick={() => setIsPersonModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              onClick={() => setIsPersonModalOpen(true)}
+              className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Add Person
-          </button>
+              Add Person
+            </button>
+            <button
+              onClick={() => setIsAddPeopleOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Add people
+            </button>
+          </div>
         </div>
 
         {people.length === 0 ? (
@@ -200,12 +210,20 @@ export default function CompanyDetailPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Add people who work at {company.name}
             </p>
-            <button
-              onClick={() => setIsPersonModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-            >
-              Add Person
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setIsAddPeopleOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+              >
+                Add people
+              </button>
+              <button
+                onClick={() => setIsPersonModalOpen(true)}
+                className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm"
+              >
+                Add Person
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -227,6 +245,13 @@ export default function CompanyDetailPage() {
       <AddPersonModal
         isOpen={isPersonModalOpen}
         onClose={() => setIsPersonModalOpen(false)}
+      />
+
+      <AddPeopleToCompanyModal
+        isOpen={isAddPeopleOpen}
+        onClose={() => setIsAddPeopleOpen(false)}
+        companyId={company.id}
+        companyName={company.name}
       />
 
       {company && (

@@ -2,6 +2,7 @@ import { existsSync } from "fs";
 import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { randomBytes } from "crypto";
+import { dataDirectory } from "@/lib/host";
 import {
   CrmPersonRef,
   ExistingExternalRef,
@@ -17,7 +18,7 @@ import {
   parseInstant,
 } from "@/lib/outlookMatch";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = dataDirectory();
 const TOKEN_PATH = path.join(DATA_DIR, "outlook-tokens.json");
 const GRAPH_ROOT = "https://graph.microsoft.com/v1.0";
 
@@ -74,7 +75,10 @@ export function getOutlookConfig(): { config?: OutlookConfig; missing: string[];
   if (!clientId) missing.push("AZURE_CLIENT_ID");
   if (!clientSecret) missing.push("AZURE_CLIENT_SECRET");
   if (!tenantId) missing.push("AZURE_TENANT_ID");
-  const redirectUri = process.env.AZURE_REDIRECT_URI?.trim() || OUTLOOK_REDIRECT_URI;
+  const appUrl = process.env.APP_URL?.trim().replace(/\/$/, "");
+  const redirectUri =
+    process.env.AZURE_REDIRECT_URI?.trim() ||
+    (appUrl ? `${appUrl}/api/outlook/callback` : OUTLOOK_REDIRECT_URI);
   if (missing.length) return { missing, redirectUri };
   return {
     missing,
@@ -446,7 +450,12 @@ export function sanitizePeople(value: unknown): CrmPersonRef[] {
     const id = asString(record?.id);
     const name = asString(record?.name);
     if (!id || !name) continue;
-    people.push({ id, name, email: asString(record?.email) });
+    people.push({
+      id,
+      name,
+      email: asString(record?.email),
+      secondaryEmail: asString(record?.secondaryEmail),
+    });
   }
   return people;
 }

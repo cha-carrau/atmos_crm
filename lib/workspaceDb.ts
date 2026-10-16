@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import { dataDirectory } from "@/lib/host";
 import {
   Company,
   Event,
@@ -47,7 +48,7 @@ export interface WorkspaceFile {
   data: WorkspaceData;
 }
 
-const filePath = path.join(process.cwd(), "data", "workspace.json");
+const filePath = path.join(dataDirectory(), "workspace.json");
 
 const emptyData = (): WorkspaceData => ({
   people: [],

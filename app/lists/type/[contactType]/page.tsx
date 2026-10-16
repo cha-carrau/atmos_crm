@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useStore } from "@/store/useStore";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { ContactType, getContactTypeDefinition } from "@/types";
-import { labelForSubtag, subtagsForContactType } from "@/utils/contactSubtags";
+import { ContactType } from "@/types";
+import { findContactType, labelForSubtag, subtagsForContactType } from "@/utils/contactSubtags";
 import MailingListMembers from "@/components/MailingListMembers";
 
 function TypeListContent() {
@@ -16,7 +16,22 @@ function TypeListContent() {
   const subtag = searchParams.get("subtag") || "";
   const { people } = useStore();
   const customByType = useContactSubtags((state) => state.byType);
-  const typeDef = getContactTypeDefinition(contactType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
+  const typeDef = findContactType(contactType, customTypes);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const persistApi = useContactSubtags.persist;
+    if (persistApi.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    return persistApi.onFinishHydration(() => setHydrated(true));
+  }, []);
+
+  if (!typeDef && !hydrated) {
+    return <div className="min-h-screen bg-gray-50 dark:bg-gray-950" />;
+  }
 
   if (!typeDef) {
     return (
@@ -37,6 +52,7 @@ function TypeListContent() {
   const members = safePeople
     .filter((person) => person?.contactType === contactType && (!subtag || person.subtag === subtag))
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const listName = subtagLabel ? `${subtagLabel} ${typeDef.label.toLowerCase()}s` : `${typeDef.label}s`;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -47,9 +63,7 @@ function TypeListContent() {
         >
           Back to Lists
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-          {subtagLabel ? `${subtagLabel} ${typeDef.label.toLowerCase()}s` : `${typeDef.label}s`}
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">{listName}</h1>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           Everyone tagged as {subtagLabel ? `${subtagLabel.toLowerCase()} ` : ""}
           {typeDef.label.toLowerCase()}.
@@ -89,7 +103,7 @@ function TypeListContent() {
           </div>
         )}
 
-        <MailingListMembers people={members} />
+        <MailingListMembers people={members} listName={listName} />
       </div>
     </div>
   );

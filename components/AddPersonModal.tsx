@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/store/useStore";
 import { ContactType } from "@/types";
+import { storedEmail, storedSecondaryEmail } from "@/lib/mergePeople";
+import { resolveCompanyId } from "@/lib/resolveCompany";
 import CompanyAutocomplete from "./CompanyAutocomplete";
 import ContactTagFields from "./ContactTagFields";
 
@@ -21,6 +23,7 @@ export default function AddPersonModal({
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    secondaryEmail: "",
     jobTitle: "",
     linkedinUrl: "",
     companyId: "",
@@ -32,6 +35,10 @@ export default function AddPersonModal({
   const [companyInputText, setCompanyInputText] = useState("");
   const [typeError, setTypeError] = useState("");
 
+  useEffect(() => {
+    if (!isOpen) setCompanyInputText("");
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleCreateCompany = (name: string): string => {
@@ -40,29 +47,22 @@ export default function AddPersonModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    let finalCompanyId = formData.companyId;
-    
-    // If there's company text but no ID, create the company
-    if (companyInputText && !finalCompanyId) {
-      const existingCompany = companies.find(
-        (c) => c.name.toLowerCase() === companyInputText.toLowerCase()
-      );
-      if (existingCompany) {
-        finalCompanyId = existingCompany.id;
-      } else {
-        finalCompanyId = handleCreateCompany(companyInputText);
-      }
-    }
-    
+
     if (!formData.contactType) {
       setTypeError("Choose a contact type.");
       return;
     }
 
+    const finalCompanyId = resolveCompanyId(
+      companyInputText,
+      useStore.getState().companies,
+      addCompany
+    );
+
     const personId = addPerson({
       name: formData.name,
-      email: formData.email || undefined,
+      email: storedEmail(formData.email),
+      secondaryEmail: storedSecondaryEmail(formData.email, formData.secondaryEmail),
       jobTitle: formData.jobTitle || undefined,
       linkedinUrl: formData.linkedinUrl || undefined,
       companyId: finalCompanyId || undefined,
@@ -75,6 +75,7 @@ export default function AddPersonModal({
     setFormData({
       name: "",
       email: "",
+      secondaryEmail: "",
       jobTitle: "",
       linkedinUrl: "",
       companyId: "",
@@ -127,6 +128,21 @@ export default function AddPersonModal({
               }
               className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
               placeholder="john@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Secondary email
+            </label>
+            <input
+              type="email"
+              value={formData.secondaryEmail}
+              onChange={(e) =>
+                setFormData({ ...formData, secondaryEmail: e.target.value })
+              }
+              className="block w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-white transition-colors duration-200 text-sm"
+              placeholder="also@example.com"
             />
           </div>
 

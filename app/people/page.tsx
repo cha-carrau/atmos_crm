@@ -3,11 +3,15 @@
 import { useState, useMemo } from "react";
 import { useStore } from "@/store/useStore";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { CONTACT_TYPES, ContactType, getContactTypeDefinition } from "@/types";
-import { labelForSubtag } from "@/utils/contactSubtags";
+import { ContactType } from "@/types";
+import { allContactTypes, findContactType, labelForSubtag } from "@/utils/contactSubtags";
 import PersonCard from "@/components/PersonCard";
 import AddPersonModal from "@/components/AddPersonModal";
 import AddCompanyModal from "@/components/AddCompanyModal";
+import MergeSuggestionsModal, {
+  MergeSuggestionsButton,
+  useMergeCandidateCount,
+} from "@/components/MergeSuggestions";
 
 type StatusTab = "active" | "parked" | "closed";
 
@@ -15,8 +19,12 @@ export default function PeoplePage() {
   const { people, getCompany, getFollowUpStatus } = useStore();
   const safePeople = Array.isArray(people) ? people : [];
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
+  const contactTypes = allContactTypes(customTypes);
   const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isMergeOpen, setIsMergeOpen] = useState(false);
+  const mergeCount = useMergeCandidateCount();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<StatusTab>("active");
   const [typeFilter, setTypeFilter] = useState<ContactType | "all">("all");
@@ -29,11 +37,13 @@ export default function PeoplePage() {
     const query = searchQuery.toLowerCase();
     if (!query) return true;
     const nameMatch = (person.name || "").toLowerCase().includes(query);
-    const emailMatch = person.email?.toLowerCase().includes(query);
+    const emailMatch =
+      person.email?.toLowerCase().includes(query) ||
+      person.secondaryEmail?.toLowerCase().includes(query);
     const jobTitleMatch = person.jobTitle?.toLowerCase().includes(query);
     const company = person.companyId ? getCompany(person.companyId) : undefined;
     const companyMatch = company?.name.toLowerCase().includes(query);
-    const typeMatch = getContactTypeDefinition(person.contactType)?.label.toLowerCase().includes(query);
+    const typeMatch = findContactType(person.contactType, customTypes)?.label.toLowerCase().includes(query);
     const subtagMatch = labelForSubtag(person.contactType, person.subtag, customByType)
       ?.toLowerCase()
       .includes(query);
@@ -84,7 +94,8 @@ export default function PeoplePage() {
               Manage your contacts and relationships
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <MergeSuggestionsButton count={mergeCount} onClick={() => setIsMergeOpen(true)} />
             <button
               onClick={() => setIsCompanyModalOpen(true)}
               className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm"
@@ -136,7 +147,7 @@ export default function PeoplePage() {
               >
                 All types
               </button>
-              {CONTACT_TYPES.map((type) => (
+              {contactTypes.map((type) => (
                 <button
                   key={type.id}
                   onClick={() => setTypeFilter(type.id)}
@@ -248,6 +259,7 @@ export default function PeoplePage() {
         isOpen={isCompanyModalOpen}
         onClose={() => setIsCompanyModalOpen(false)}
       />
+      <MergeSuggestionsModal open={isMergeOpen} onClose={() => setIsMergeOpen(false)} />
     </div>
   );
 }

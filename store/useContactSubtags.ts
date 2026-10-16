@@ -1,58 +1,64 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ContactSubtag } from "@/types";
+import { ContactSubtag, ContactTypeDefinition } from "@/types";
 import {
-  CustomizableContactType,
-  CustomSubtagsByType,
-  EMPTY_CUSTOM_SUBTAGS,
-  customSubtagsFor,
-  uniqueSubtagId,
+  ContactTagCatalog,
+  SubtagsByType,
+  normalizeByType,
+  normalizeCustomTypes,
+  validateSubtagName,
+  validateTypeName,
 } from "@/utils/contactSubtags";
 
 export type AddSubtagResult =
   | { ok: true; subtag: ContactSubtag }
   | { ok: false; error: string };
 
-interface ContactSubtagsState {
-  byType: CustomSubtagsByType;
-  addSubtag: (contactType: CustomizableContactType, label: string) => AddSubtagResult;
-  removeSubtag: (contactType: CustomizableContactType, id: string) => void;
-}
+export type AddTypeResult =
+  | { ok: true; type: ContactTypeDefinition }
+  | { ok: false; error: string };
 
-function normalizeByType(byType?: Partial<CustomSubtagsByType> | null): CustomSubtagsByType {
-  return {
-    partner: customSubtagsFor("partner", byType),
-    hire: customSubtagsFor("hire", byType),
-  };
+interface ContactSubtagsState {
+  byType: SubtagsByType;
+  customTypes: ContactTypeDefinition[];
+  addType: (label: string) => AddTypeResult;
+  addSubtag: (contactType: string, label: string) => AddSubtagResult;
+  removeSubtag: (contactType: string, id: string) => void;
+  applyCatalog: (catalog: ContactTagCatalog) => void;
 }
 
 export const useContactSubtags = create<ContactSubtagsState>()(
   persist(
     (set, get) => ({
-      byType: EMPTY_CUSTOM_SUBTAGS,
+      byType: {},
+      customTypes: [],
+
+      addType: (rawLabel) => {
+        const result = validateTypeName(rawLabel, get().customTypes);
+        if (!result.ok) return result;
+        const type: ContactTypeDefinition = {
+          id: result.id,
+          label: result.label,
+          subtagLabel: `${result.label} type`,
+          subtags: [],
+        };
+        set((state) => ({
+          customTypes: [...normalizeCustomTypes(state.customTypes), type],
+        }));
+        return { ok: true, type };
+      },
 
       addSubtag: (contactType, rawLabel) => {
-        const label = (rawLabel || "").trim();
-        if (!label) return { ok: false, error: "Enter a subtype name." };
-        if (!contactType) return { ok: false, error: "Choose Partner or Hire first." };
-
-        const existing = customSubtagsFor(contactType, get().byType);
-        if (existing.some((item) => item.label.toLowerCase() === label.toLowerCase())) {
-          return { ok: false, error: "That subtype already exists." };
-        }
-
-        const id = uniqueSubtagId(label, existing);
-        if (!id) {
-          return { ok: false, error: "Use letters or numbers in the subtype name." };
-        }
-
-        const subtag = { id, label };
+        const result = validateSubtagName(rawLabel, contactType, get().byType, get().customTypes);
+        if (!result.ok) return result;
+        const subtag = { id: result.id, label: result.label };
         set((state) => {
           const current = normalizeByType(state.byType);
+          const list = current[contactType] || [];
           return {
             byType: {
               ...current,
-              [contactType]: [...current[contactType], subtag],
+              [contactType]: [...list, subtag],
             },
           };
         });
@@ -62,20 +68,30 @@ export const useContactSubtags = create<ContactSubtagsState>()(
       removeSubtag: (contactType, id) =>
         set((state) => {
           const current = normalizeByType(state.byType);
-          return {
-            byType: {
-              ...current,
-              [contactType]: current[contactType].filter((item) => item.id !== id),
-            },
-          };
+          const list = current[contactType] || [];
+          const next = list.filter((item) => item.id !== id);
+          const byType = { ...current };
+          if (next.length > 0) byType[contactType] = next;
+          else delete byType[contactType];
+          return { byType };
+        }),
+
+      applyCatalog: (catalog) =>
+        set({
+          byType: normalizeByType(catalog.byType),
+          customTypes: normalizeCustomTypes(catalog.customTypes),
         }),
     }),
     {
       name: "tempo-contact-subtags",
-      merge: (persisted, current) => ({
-        ...current,
-        byType: normalizeByType((persisted as Partial<ContactSubtagsState> | undefined)?.byType),
-      }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<ContactSubtagsState> | undefined;
+        return {
+          ...current,
+          byType: normalizeByType(saved?.byType),
+          customTypes: normalizeCustomTypes(saved?.customTypes),
+        };
+      },
     }
   )
 );

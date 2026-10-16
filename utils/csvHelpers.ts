@@ -4,6 +4,7 @@ export interface CSVRow {
   personId: string;
   personName: string;
   personEmail: string;
+  personSecondaryEmail: string;
   personJobTitle: string;
   personLinkedIn: string;
   personNotes: string;
@@ -62,6 +63,7 @@ export function exportToCSV(
         personId: person.id,
         personName: person.name,
         personEmail: person.email || "",
+        personSecondaryEmail: person.secondaryEmail || "",
         personJobTitle: person.jobTitle || "",
         personLinkedIn: person.linkedinUrl || "",
         personNotes: person.notes || "",
@@ -88,6 +90,7 @@ export function exportToCSV(
           personId: person.id,
           personName: person.name,
           personEmail: person.email || "",
+          personSecondaryEmail: person.secondaryEmail || "",
           personJobTitle: person.jobTitle || "",
           personLinkedIn: person.linkedinUrl || "",
           personNotes: person.notes || "",
@@ -134,6 +137,7 @@ export function exportToCSV(
     "PersonContactType",
     "PersonSubtag",
     "PersonTags",
+    "PersonSecondaryEmail",
   ];
 
   const csvLines = [headers.join(",")];
@@ -192,6 +196,7 @@ export function exportToCSV(
       escapeCsvField(row.personContactType),
       escapeCsvField(row.personSubtag),
       escapeCsvField(row.personTags),
+      escapeCsvField(row.personSecondaryEmail),
     ].join(",");
     csvLines.push(line);
   });
@@ -327,6 +332,7 @@ export function parseCSV(csvContent: string): {
       personSubtag = "",
       personTags = "",
     ] = fields;
+    const personSecondaryEmail = fields[21] || "";
 
     // Add company if not already added
     if (companyId && companyName && !companies.has(companyId)) {
@@ -347,6 +353,7 @@ export function parseCSV(csvContent: string): {
         id: personId,
         name: personName,
         email: personEmail || undefined,
+        secondaryEmail: personSecondaryEmail || undefined,
         jobTitle: personJobTitle || undefined,
         linkedinUrl: personLinkedIn || undefined,
         notes: personNotes || undefined,

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CONTACT_TYPES, ContactType, MailingList, getContactTypeDefinition } from "@/types";
+import { ContactType, MailingList } from "@/types";
 import { useStore } from "@/store/useStore";
 import { useContactSubtags } from "@/store/useContactSubtags";
-import { subtagsForContactType } from "@/utils/contactSubtags";
+import { allContactTypes, findContactType, subtagsForContactType } from "@/utils/contactSubtags";
 import { peopleForList } from "@/utils/mailingLists";
 
 interface MailingListModalProps {
@@ -17,6 +17,8 @@ export default function MailingListModal({ isOpen, onClose, list }: MailingListM
   const { people, addMailingList, updateMailingList } = useStore();
   const safePeople = Array.isArray(people) ? people : [];
   const customByType = useContactSubtags((state) => state.byType);
+  const customTypes = useContactSubtags((state) => state.customTypes);
+  const contactTypes = allContactTypes(customTypes);
   const [name, setName] = useState(list?.name || "");
   const [contactType, setContactType] = useState<ContactType | "">(list?.contactType || "");
   const [subtags, setSubtags] = useState<string[]>(list?.subtags || []);
@@ -34,7 +36,7 @@ export default function MailingListModal({ isOpen, onClose, list }: MailingListM
     setError("");
   }, [isOpen, list]);
 
-  const typeDef = getContactTypeDefinition(contactType);
+  const typeDef = findContactType(contactType, customTypes);
   const subtypeOptions = subtagsForContactType(contactType || undefined, customByType);
   const knownTags = useMemo(() => {
     const values = new Set<string>();
@@ -136,7 +138,7 @@ export default function MailingListModal({ isOpen, onClose, list }: MailingListM
               <button type="button" onClick={() => handleType("")} className={chipClass(contactType === "")}>
                 Any
               </button>
-              {CONTACT_TYPES.map((type) => (
+              {contactTypes.map((type) => (
                 <button
                   key={type.id}
                   type="button"
