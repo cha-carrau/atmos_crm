@@ -2,6 +2,51 @@
 
 A client-only CRM application built with Next.js, TypeScript, and Tailwind CSS to help you track outreach, manage contacts, and never miss a follow-up.
 
+## Run this and send your data
+
+Use this if you are setting up your own copy, connecting your Outlook, and sending the data file back to Charlotte.
+
+### Open the app
+
+[Node.js](https://nodejs.org/) is required. In a terminal:
+
+```bash
+git clone https://github.com/cha-carrau/tempo.git
+cd tempo
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser. Leave that terminal running while you use the app.
+
+### Log in
+
+The first screen is **AtmosOne CRM**. Type your name and email, then click **Create workspace**. That is the sign-in. There is no password.
+
+This creates your own workspace on your computer. It does not include Charlotte's contacts.
+
+### Sync Outlook
+
+Create your own Azure app registration, then connect this copy of the app to it.
+
+1. In the project folder, copy `.env.example` to a new file named `.env.local`.
+2. In `.env.local`, set `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID` from that Azure app registration.
+3. On the registration, add a **Web** redirect URI of exactly `http://localhost:3000/api/outlook/callback`.
+4. Under Microsoft Graph, add these delegated permissions: `Mail.Read`, `Calendars.Read`, `Contacts.Read`, `offline_access`, and `User.Read`.
+5. Save `.env.local`, then restart the dev server (`npm run dev`) so it picks up the new values.
+
+In the app, open **Outlook** in the top navigation. Click **Connect Outlook** and sign in with Microsoft. When it is connected, click **Sync now**.
+
+### Send your data back
+
+Open **Settings** with the gear icon at the top right. In the section **Share a copy of your data**, click **Download all data**.
+
+The file is named `atmosone-data-YYYY-MM-DD.json`. It is JSON, not a CSV. It includes contacts, companies, lists, and events. Send that file to Charlotte.
+
+Charlotte opens **Settings**, clicks **Upload data to update**, reviews the summary of what will be added and updated, and clicks **Confirm update**.
+
+A mailing list also has a **Download CSV** button. That file contains only the email addresses on that list. The file to send for a full update is the JSON from **Download all data**.
+
 ## Features
 
 - 📋 **Smart Follow-ups**: Automatic follow-up suggestions based on event types and timing
